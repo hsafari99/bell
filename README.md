@@ -10,8 +10,12 @@ A production-ready RESTful API for managing a telecom shopping cart with seamles
 ✅ **Self-Healing Synchronization** - Automatic retry and recovery from partial sync failures
 ✅ **Automatic Context Management** - Transparent recreation of expired provider contexts
 ✅ **Background Cleanup** - Automatic removal of expired carts and contexts
+✅ **Jurisdiction-Specific Tax Calculation** - Canadian provinces (HST, GST+PST, GST+QST) with extensible calculator system
+✅ **Result Pattern** - Explicit success/failure handling without exceptions
+✅ **Centralized Error Management** - Scalable error messages ready for i18n
 ✅ **100% TypeScript** - Full type safety with strict mode
-✅ **Comprehensive Tests** - 22 unit tests covering all critical paths
+✅ **Comprehensive Tests** - 195 unit tests across 17 test files covering all critical paths
+✅ **SOLID Principles** - Full adherence to Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, and Dependency Inversion
 
 ## Architecture
 
@@ -19,10 +23,19 @@ See [SPEC-A-architecture.md](./SPEC-A-architecture.md) for detailed architecture
 
 **Key Components:**
 - **API Layer**: Express routes with validation and error handling
-- **Service Layer**: CartService (business logic), CartCleanupService (background jobs)
+- **Service Layer**: CartService (business logic), TaxService (tax orchestration), CartCleanupService (background jobs)
+- **Tax Calculation Layer**: TaxCalculator interface with jurisdiction-specific implementations (Strategy pattern)
 - **Integration Layer**: CommerceProviderInterface + SalesforceCommerceProvider (test double)
-- **Storage Layer**: In-memory CartStore + ProviderContextStore
+- **Storage Layer**: In-memory CartStore, ProviderContextStore, TaxRateStore
+- **Error Management**: Centralized error constants and messages (i18n-ready)
 - **Utilities**: Operation queue, validators, pure calculation functions
+
+**SOLID Principles Compliance:**
+- **Single Responsibility**: Each class has one clear purpose (CartService for cart logic, TaxService for tax orchestration, etc.)
+- **Open/Closed**: Extensible via interfaces (add new tax calculators or commerce providers without modifying existing code)
+- **Liskov Substitution**: All interface implementations are interchangeable
+- **Interface Segregation**: Focused, minimal interfaces (TaxCalculator, CommerceProviderInterface)
+- **Dependency Inversion**: Dependencies on abstractions with constructor injection
 
 ## API Specification
 
@@ -84,8 +97,8 @@ npm test:coverage
 
 **Test Results:**
 ```
-Test Files  2 passed (2)
-     Tests  22 passed (22)
+Test Files  17 passed (17)
+     Tests  195 passed (195)
 ```
 
 ## Example Usage
@@ -143,6 +156,8 @@ src/
 │   ├── external-context.ts
 │   ├── api-responses.ts
 │   ├── errors.ts
+│   ├── error-constants.ts
+│   ├── tax.ts
 │   └── index.ts
 ├── providers/           # External commerce provider integration
 │   ├── commerce-provider.interface.ts
@@ -151,10 +166,16 @@ src/
 ├── stores/              # In-memory storage
 │   ├── cart-store.ts
 │   ├── provider-context-store.ts
+│   ├── tax-rate-store.ts
 │   └── index.ts
 ├── services/            # Business logic
 │   ├── cart.service.ts
 │   ├── cart-cleanup.service.ts
+│   ├── tax.service.ts
+│   ├── tax-calculators/
+│   │   ├── tax-calculator.interface.ts
+│   │   ├── canadian-tax-calculator.ts
+│   │   └── index.ts
 │   └── index.ts
 ├── api/                 # Express routes
 │   ├── cart.routes.ts
@@ -168,9 +189,30 @@ src/
 │   └── index.ts
 └── index.ts             # Application entry point
 
-tests/                   # Unit tests
+tests/                   # Unit tests (17 test files, 195 tests)
 ├── cart.service.test.ts
-└── salesforce-provider.test.ts
+├── tax.service.test.ts
+├── salesforce-provider.test.ts
+├── models/
+│   └── errors.test.ts
+├── stores/
+│   ├── cart-store.test.ts
+│   ├── provider-context-store.test.ts
+│   └── tax-rate-store.test.ts
+├── services/
+│   ├── cart.service.additional.test.ts
+│   ├── cart-cleanup.service.test.ts
+│   └── tax.service.exemptions.test.ts
+├── tax-calculators/
+│   └── canadian-tax-calculator.additional.test.ts
+├── utils/
+│   ├── cart-calculations.test.ts
+│   ├── cart-operation-queue.test.ts
+│   └── validators.test.ts
+└── api/
+    ├── cart.routes.test.ts
+    ├── health.routes.test.ts
+    └── response-helpers.test.ts
 ```
 
 ## Key Design Decisions
@@ -205,19 +247,59 @@ tests/                   # Unit tests
 
 ## Testing
 
-The project includes comprehensive unit tests covering:
+The project includes comprehensive unit tests (195 tests across 17 test files) covering:
 
+**Cart Service Tests:**
 - ✅ Cart operations (add, update, remove, checkout)
 - ✅ Checkout idempotency (duplicate prevention)
+- ✅ Result pattern (success/failure handling)
 - ✅ Concurrency control (race conditions)
-- ✅ Provider context expiry and recreation
-- ✅ Validation errors
-- ✅ Empty cart scenarios
+- ✅ Tax context management
+- ✅ Sync scenarios and failures
 - ✅ Concurrent operations for same/different users
+
+**Tax Calculation Tests:**
+- ✅ Canadian tax calculations (HST, GST+PST, GST+QST)
+- ✅ Tax exemptions for different product types
+- ✅ Multiple jurisdictions
+- ✅ Tax stacking (Quebec QST)
+- ✅ Time-based tax rate changes
+
+**Provider Tests:**
+- ✅ Provider context expiry and recreation
+- ✅ Cart synchronization
+- ✅ Checkout flows
+- ✅ Idempotent operations
+
+**Store Tests:**
+- ✅ Cart store operations
+- ✅ Provider context store
+- ✅ Tax rate store
+
+**Utility Tests:**
+- ✅ Validation errors
+- ✅ Cart calculations
+- ✅ Operation queue
+- ✅ Error handling
+
+**API Tests:**
+- ✅ Response helpers
+- ✅ Cart routes
+- ✅ Health check routes
+
+**Service Tests:**
+- ✅ Cleanup service
+- ✅ Background jobs
 
 Run tests with:
 ```bash
 npm test
+
+# Run with coverage
+npm test:coverage
+
+# Run in non-watch mode
+npm test -- --run
 ```
 
 ## Configuration

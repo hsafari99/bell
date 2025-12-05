@@ -173,3 +173,145 @@ The SPEC-A architecture document is now production-ready with:
 - Operational resilience
 - Edge case coverage
 - Complete implementation patterns
+
+---
+
+## Prompt 6: Tax System Implementation
+**Prompt:**
+> implement tax calculation system for Canadian jurisdictions
+
+**Context:** User needed scalable tax calculation supporting multiple Canadian provinces with different tax rules (HST, GST+PST, GST+QST).
+
+**Outcome:**
+- Created `TaxService` as orchestrator with jurisdiction-specific calculators
+- Implemented `TaxCalculator` interface following Strategy pattern
+- Built `CanadianTaxCalculator` with support for:
+  - HST provinces (ON, NS, NB, NL, PE)
+  - GST+PST provinces (BC, SK, MB)
+  - GST+QST Quebec with tax stacking
+- Created `TaxRateStore` for managing time-based tax rates
+- Added `TaxContext` model with jurisdiction and calculation date
+- Integrated tax calculation into `CartService.checkout()`
+- All 31 tests passing
+
+---
+
+## Prompt 7: String Literal Union Types Refactoring
+**Prompt:**
+> Refactor all string literal union types in the codebase to use const objects with as const pattern
+
+**Context:** User wanted better maintainability and type safety for enum-like values.
+
+**Outcome:**
+- Converted `ProductType`, `SyncStatus`, `CheckoutStatus` to const object pattern:
+  ```typescript
+  export const ProductType = {
+    DEVICE: 'device',
+    ACCESSORY: 'accessory',
+    PLAN: 'plan',
+    SERVICE: 'service',
+  } as const;
+  export type ProductType = typeof ProductType[keyof typeof ProductType];
+  ```
+- Updated all usages throughout codebase
+- Validators now dynamically reference `Object.values(ProductType)`
+- All 31 tests still passing
+
+---
+
+## Prompt 8: Result Pattern for Checkout
+**Prompt:**
+> why status in CheckoutResult is hardcoded to completed? what if we have an issue in checkout? lets go with better design
+
+**Context:** User questioned why `CheckoutResult` only represented success cases and errors were thrown. Wanted a better design.
+
+**Outcome:**
+- Implemented **Result Pattern** where `checkout()` returns a result object for both success and failure
+- Updated `CheckoutResult` interface:
+  - Made `orderId` and `completedAt` optional
+  - Added `error?: string` field
+  - `status` can now be `COMPLETED` or `FAILED`
+- Refactored `CartService.checkout()` to return failed results instead of throwing:
+  - Cart not found → Failed result
+  - Already completed → Failed result (idempotency)
+  - In progress → Failed result
+  - Empty cart → Failed result
+  - Provider errors → Failed result
+  - Exceptions caught and converted to failed results
+- Updated `SalesforceCommerceProvider` to return failed results
+- Updated API routes to check `result.status` and return appropriate HTTP responses
+- Updated all tests to check result status instead of expecting thrown errors
+- All 31 tests passing with new design
+
+**Benefits:**
+- More predictable API behavior
+- Explicit error handling at all levels
+- Better for HTTP API responses
+- Maintains idempotency guarantees
+- No unexpected exceptions
+
+---
+
+## Prompt 9: Error Message Refactoring
+**Prompt:**
+> I see lots of hard coded text in errors.ts. it is not scallable and hard to maintain
+
+**Context:** User wanted centralized error message management for better scalability and maintainability.
+
+**Outcome:**
+- Created `error-constants.ts` with centralized error management:
+  - `ErrorCode` enum for type-safe error codes
+  - `ErrorName` const object for error class names
+  - `ErrorStatusCode` enum for HTTP status codes
+  - `ErrorMessages` const object for default messages
+  - `ValidationMessages` const object for field-level validation
+  - `ErrorConfig` object mapping codes to status and messages
+  - `ProviderConstants` for shared provider values
+- Refactored all error classes to use centralized constants:
+  - Removed hardcoded strings
+  - Used `ErrorConfig` for default messages and status codes
+  - Support for both static messages and message functions
+- Updated `validators.ts` to use `ValidationMessages`
+- Updated `CartService` to use `ErrorMessages` constants
+- Prepared for future i18n support
+- All 31 tests passing
+
+**Benefits:**
+- Single source of truth for error messages
+- Easy to update messages globally
+- Ready for internationalization
+- Consistent error handling
+- Better maintainability
+
+---
+
+## Recent Enhancements Summary
+
+The codebase has evolved with these additional features:
+
+1. **Tax Calculation System**: Scalable, jurisdiction-specific tax logic with Strategy pattern
+2. **Type Safety Improvements**: Const object pattern for better autocomplete and refactoring
+3. **Result Pattern**: Explicit success/failure handling without exceptions
+4. **Centralized Error Management**: Scalable error message system ready for i18n
+5. **SOLID Compliance**: Full adherence to all SOLID principles:
+   - **SRP**: Each class has single responsibility
+   - **OCP**: Extensible via interfaces (TaxCalculator, CommerceProvider)
+   - **LSP**: All implementations are substitutable
+   - **ISP**: Focused, minimal interfaces
+   - **DIP**: Dependencies on abstractions, constructor injection
+
+## Current Test Status
+
+**All 31 tests passing:**
+- 9 tax service tests
+- 13 cart service tests
+- 9 provider tests
+
+Coverage includes:
+- Tax calculation for multiple jurisdictions
+- Cart operations (add, update, remove, checkout)
+- Checkout idempotency and Result pattern
+- Concurrency control
+- Provider context expiry
+- Validation errors
+- Empty cart scenarios
